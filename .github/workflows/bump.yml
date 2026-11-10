@@ -1,0 +1,43 @@
+name: Bump SpyCode
+
+on:
+  schedule:
+    - cron: "0 8 * * *"
+  workflow_dispatch:
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for a new release
+        id: check
+        run: |
+          latest=$(npm view @spycore/cli version)
+          current=$(grep -o 'cli-[0-9.]*\.tgz' Formula/spycode.rb | grep -o '[0-9.]*')
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          if [ "$latest" = "$current" ]; then
+            echo "up_to_date=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "up_to_date=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Update the formula
+        if: steps.check.outputs.up_to_date == 'false'
+        run: |
+          version="${{ steps.check.outputs.latest }}"
+          curl -sL -o /tmp/spycode.tgz "https://registry.npmjs.org/@spycore/cli/-/cli-${version}.tgz"
+          sha=$(sha256sum /tmp/spycode.tgz | cut -d' ' -f1)
+          sed -i "s|cli-[0-9.]*\.tgz|cli-${version}.tgz|" Formula/spycode.rb
+          sed -i "s|sha256 \"[a-f0-9]*\"|sha256 \"${sha}\"|" Formula/spycode.rb
+          grep -E "url|sha256" Formula/spycode.rb
+      - name: Commit the bump
+        if: steps.check.outputs.up_to_date == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/spycode.rb
+          git commit -m "spycode ${{ steps.check.outputs.latest }}"
+          git push

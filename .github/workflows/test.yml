@@ -1,0 +1,25 @@
+name: Test formula
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tap the local checkout
+        run: brew tap spycore/tap "$GITHUB_WORKSPACE"
+      - name: Trust the tap
+        run: brew trust spycore/tap
+      - name: Audit the formula
+        run: brew audit --strict --online spycore/tap/spycode
+      - name: Install from the tap
+        run: brew install spycore/tap/spycode
+      - name: Check the installed CLI
+        run: |
+          spycore --version
+          spycore --help
+          brew test spycore/tap/spycode
